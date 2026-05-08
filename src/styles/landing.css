@@ -1,0 +1,117 @@
+/* Landing page styles */
+
+.landing-vinyl-wrap {
+  transition: transform 0.3s ease;
+  position: relative;
+}
+
+.landing-vinyl-wrap:hover {
+  transform: scale(1.05);
+}
+
+.landing-vinyl-wrap.playing .landing-disc {
+  animation: spin-disc 3s linear infinite;
+}
+
+.landing-vinyl-wrap.playing .landing-label {
+  animation: spin-label 3s linear infinite;
+}
+
+/* Disc sits at 0,0 and fills the wrapper — just rotate around its centre */
+@keyframes spin-disc {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Label is absolutely positioned with translate(-50%,-50%) baked in —
+   keep the translate so it stays centred while spinning */
+@keyframes spin-label {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Button hover effect */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(122, 92, 30, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ── Tonearm ── */
+.landing-tonearm-wrap {
+  position: absolute;
+  top: -10px;
+  right: -28px;
+  width: 90px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.landing-tonearm {
+  width: 4px;
+  height: 140px;
+  background: linear-gradient(180deg, #c8a87a 0%, #8b6535 55%, #5a3d1a 100%);
+  border-radius: 2px 2px 1px 1px;
+  transform-origin: top center;
+  transform: rotate(-22deg);
+  transition: transform 1.2s cubic-bezier(.4, 0, .2, 1);
+  margin-left: 24px;
+  box-shadow: 1px 1px 5px rgba(0,0,0,.35);
+}
+
+/* pivot dot at the top */
+.landing-tonearm::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #d4a96a, #6b4a1e);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+
+/* stylus tip at the bottom */
+.landing-tonearm::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: -4px;
+  width: 12px;
+  height: 7px;
+  background: #7a5828;
+  border-radius: 1px 1px 3px 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+
+/* arm swings onto the record when playing */
+.landing-vinyl-wrap.playing .landing-tonearm {
+  transform: rotate(-6deg);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .landing-vinyl-wrap {
+    width: 250px !important;
+    height: 250px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-vinyl-wrap {
+    width: 200px !important;
+    height: 200px !important;
+  }
+}
