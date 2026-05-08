@@ -5,10 +5,10 @@ export const CLIP_DURATION = 30; // seconds
 const TARGET_RATE = 22050;       // downsample to 22kHz — halves file size vs 44.1kHz
 
 /**
- * Decodes a full audio data URI, extracts [startSec, startSec + 30s],
+ * Decodes a full audio data URI, extracts [startSec, startSec + durationSec],
  * downmixes to mono at 22kHz, and returns a WAV data URI.
  */
-export async function trimAudioTo30s(dataUri, startSec) {
+export async function trimAudioTo30s(dataUri, startSec, durationSec = CLIP_DURATION) {
   const buffer = dataUriToArrayBuffer(dataUri);
 
   const audioCtx = new AudioContext();
@@ -16,7 +16,7 @@ export async function trimAudioTo30s(dataUri, startSec) {
   await audioCtx.close();
 
   const clipSamples = Math.floor(
-    Math.min(CLIP_DURATION, decoded.duration - startSec) * TARGET_RATE
+    Math.min(durationSec, decoded.duration - startSec) * TARGET_RATE
   );
 
   const offline = new OfflineAudioContext(1, clipSamples, TARGET_RATE);
@@ -37,7 +37,7 @@ export async function trimAudioTo30s(dataUri, startSec) {
 
   src.buffer = monoBuffer;
   src.connect(offline.destination);
-  src.start(0, startSec, CLIP_DURATION);
+  src.start(0, startSec, durationSec);
 
   const rendered = await offline.startRendering();
   return audioBufferToWavDataUri(rendered);

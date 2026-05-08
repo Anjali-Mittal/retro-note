@@ -22,6 +22,7 @@ const S: {
   composeAudio: HTMLAudioElement | null;
   trimStart: number;
   songDuration: number;
+  clipDuration: number;
 } = {
   // compose form
   photos:           [],
@@ -34,8 +35,9 @@ const S: {
   composeIsPlaying: false,
   composeAudio:     null,
   // trim
-  trimStart:        0,     // seconds — where the 30s clip starts
+  trimStart:        0,     // seconds — where the clip starts
   songDuration:     0,     // total duration of the loaded song
+  clipDuration:     30,    // seconds — how long the clip should be (max 30s)
 };
 
 /* ═══════════════════════════════════════════════════
@@ -211,17 +213,29 @@ function trimSectionHTML() {
   return `
     <div id="c-trim-section" style="margin-top:1rem;padding:1rem;background:rgba(0,0,0,.04);border-radius:4px;border:1px solid var(--aged);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
-        <span style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sepia);font-family:'Cormorant Garamond',serif;">clip start</span>
-        <span id="c-trim-display" style="font-size:.78rem;font-family:'Cormorant Garamond',serif;color:var(--ink);font-variant-numeric:tabular-nums;">0:00 → 0:30</span>
+        <span style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sepia);font-family:'Cormorant Garamond',serif;">start time</span>
+        <span id="c-trim-display" style="font-size:.78rem;font-family:'Cormorant Garamond',serif;color:var(--ink);font-variant-numeric:tabular-nums;">0:00</span>
       </div>
       <input id="c-trim-slider" type="range" min="0" max="100" step="0.1" value="0"
         style="width:100%;accent-color:var(--sepia);cursor:pointer;" aria-label="Trim start position" />
-      <div style="display:flex;justify-content:space-between;margin-top:.3rem;">
+      <div style="display:flex;justify-content:space-between;margin-top:.3rem;margin-bottom:1rem;">
         <span style="font-size:.65rem;color:var(--dust);font-family:'Cormorant Garamond',serif;">0:00</span>
         <span id="c-trim-end-label" style="font-size:.65rem;color:var(--dust);font-family:'Cormorant Garamond',serif;"></span>
       </div>
-      <p id="c-trim-note" style="font-size:.68rem;color:var(--muted);margin:.5rem 0 0;font-style:italic;font-family:'IM Fell English',Georgia,serif;">
-        shared link plays exactly 30 seconds from this point
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+        <span style="font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sepia);font-family:'Cormorant Garamond',serif;">clip length</span>
+        <span id="c-duration-display" style="font-size:.78rem;font-family:'Cormorant Garamond',serif;color:var(--ink);font-variant-numeric:tabular-nums;">0:30</span>
+      </div>
+      <input id="c-duration-slider" type="range" min="1" max="30" step="0.1" value="30"
+        style="width:100%;accent-color:var(--sepia);cursor:pointer;" aria-label="Clip duration" />
+      <div style="display:flex;justify-content:space-between;margin-top:.3rem;">
+        <span style="font-size:.65rem;color:var(--dust);font-family:'Cormorant Garamond',serif;">0:01</span>
+        <span style="font-size:.65rem;color:var(--dust);font-family:'Cormorant Garamond',serif;">0:30</span>
+      </div>
+
+      <p id="c-trim-note" style="font-size:.68rem;color:var(--muted);margin:.7rem 0 0;font-style:italic;font-family:'IM Fell English',Georgia,serif;">
+        your letter will play from 0:00 for 0:30
       </p>
       <button id="c-trim-preview" style="margin-top:.6rem;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sepia);background:none;border:1px solid var(--aged);padding:.3rem .75rem;cursor:pointer;border-radius:2px;transition:all .15s;">
         ▶ preview clip
@@ -350,38 +364,59 @@ function updateVinylUI() {
 
 function updateTrimUI() {
   const slider = document.getElementById('c-trim-slider') as HTMLInputElement | null;
+  const durationSlider = document.getElementById('c-duration-slider') as HTMLInputElement | null;
   const display = document.getElementById('c-trim-display');
+  const durationDisplay = document.getElementById('c-duration-display');
   const endLbl  = document.getElementById('c-trim-end-label');
   const noteEl  = document.getElementById('c-trim-note');
-  if (!slider || !display) return;
+  if (!slider || !durationSlider || !display || !durationDisplay) return;
 
-  const dur      = S.songDuration;
-  const maxStart = Math.max(0, dur - CLIP_DURATION);
+  const dur = S.songDuration;
+  const maxStart = Math.max(0, dur - S.clipDuration);
 
-  slider.max   = String(maxStart > 0 ? maxStart * 10 : 0); // ×10 for 0.1s precision
+  slider.max = String(maxStart > 0 ? maxStart * 10 : 0);
   slider.value = String(S.trimStart * 10);
+  durationSlider.value = String(S.clipDuration);
 
-  const clipEnd = Math.min(S.trimStart + CLIP_DURATION, dur);
-  display.textContent = `${fmtTime(S.trimStart)} → ${fmtTime(clipEnd)}`;
+  display.textContent = fmtTime(S.trimStart);
+  durationDisplay.textContent = fmtTime(S.clipDuration);
   if (endLbl) endLbl.textContent = fmtTime(dur);
 
-  if (dur <= CLIP_DURATION) {
-    slider.disabled      = true;
+  // Disable start slider if song is very short
+  if (dur <= 1) {
+    slider.disabled = true;
     slider.style.opacity = '.4';
-    if (noteEl) noteEl.textContent = 'song is under 30 s — the full track will be used';
   } else {
-    slider.disabled      = false;
+    slider.disabled = false;
     slider.style.opacity = '1';
+  }
+
+  // Update note with preview
+  if (noteEl) {
+    noteEl.textContent = `your letter will play from ${fmtTime(S.trimStart)} for ${fmtTime(S.clipDuration)}`;
   }
 
   slider.oninput = () => {
     S.trimStart = parseFloat(slider.value) / 10;
-    const end   = Math.min(S.trimStart + CLIP_DURATION, dur);
-    display.textContent = `${fmtTime(S.trimStart)} → ${fmtTime(end)}`;
+    if (display) display.textContent = fmtTime(S.trimStart);
+    if (noteEl) noteEl.textContent = `your letter will play from ${fmtTime(S.trimStart)} for ${fmtTime(S.clipDuration)}`;
     // Seek paused player to the new trim start
     if (S.composeAudio && !S.composeIsPlaying) {
       (S.composeAudio as HTMLAudioElement).currentTime = S.trimStart;
     }
+  };
+
+  durationSlider.oninput = () => {
+    S.clipDuration = parseFloat(durationSlider.value);
+    // Ensure start position doesn't go past the new duration
+    const maxNewStart = Math.max(0, dur - S.clipDuration);
+    if (S.trimStart > maxNewStart) {
+      S.trimStart = maxNewStart;
+      slider.value = String(S.trimStart * 10);
+      if (display) display.textContent = fmtTime(S.trimStart);
+    }
+    if (durationDisplay) durationDisplay.textContent = fmtTime(S.clipDuration);
+    if (noteEl) noteEl.textContent = `your letter will play from ${fmtTime(S.trimStart)} for ${fmtTime(S.clipDuration)}`;
   };
 
   const trimPreviewBtn = document.getElementById('c-trim-preview');
@@ -407,7 +442,7 @@ function previewTrimClip() {
   a.currentTime = S.trimStart;
   _trimPreviewAudio = a;
 
-  const endTime = S.trimStart + Math.min(CLIP_DURATION, S.songDuration - S.trimStart);
+  const endTime = S.trimStart + Math.min(S.clipDuration, S.songDuration - S.trimStart);
 
   const tick = () => {
     if (a.currentTime >= endTime) {
@@ -523,6 +558,9 @@ function openPreviewOverlay() {
   const overlay = document.getElementById('c-prev-overlay');
   if (!overlay) return;
 
+  // Bug 1 fix: stop compose player before opening preview
+  stopAllAudio();
+
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(8,4,1,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9000;padding:1.5rem;';
   overlay.innerHTML = `
     <div id="prev-panel" style="background:var(--cream);padding:2rem;max-width:900px;width:100%;max-height:94vh;overflow:auto;border-radius:3px;box-shadow:0 24px 64px rgba(0,0,0,.5);">
@@ -546,14 +584,23 @@ function openPreviewOverlay() {
   const pvConfirm = document.getElementById('pv-confirm');
   if (pvConfirm) pvConfirm.addEventListener('click', handleConfirmSend);
 
-  bindCollageEvents({
-    id: 'pv', hasSong: !!S.songSrc, audioSrc: S.songSrc,
-    recipient: S.recipient, note: S.note,
-    onPlayingChange: (playing: boolean) => {
-      const lbl = document.getElementById('pv-song-lbl');
-      if (lbl) lbl.textContent = (playing ? '♪ now playing' : '♪ click vinyl to preview') + (S.songName ? ` · ${S.songName}` : '');
-    },
-  });
+  // Bug 2 fix: pre-trim so preview plays the trimmed clip, not the full song
+  (async () => {
+    let previewAudioSrc: string | null = S.songSrc;
+    if (S.songSrc) {
+      try {
+        previewAudioSrc = await trimAudioTo30s(S.songSrc, S.trimStart, S.clipDuration);
+      } catch { /* fall back to full src */ }
+    }
+    bindCollageEvents({
+      id: 'pv', hasSong: !!S.songSrc, audioSrc: previewAudioSrc,
+      recipient: S.recipient, note: S.note,
+      onPlayingChange: (playing: boolean) => {
+        const lbl = document.getElementById('pv-song-lbl');
+        if (lbl) lbl.textContent = (playing ? '♪ now playing' : '♪ click vinyl to preview') + (S.songName ? ` · ${S.songName}` : '');
+      },
+    });
+  })();
 }
 
 function closePreviewOverlay() {
@@ -571,42 +618,97 @@ async function handleConfirmSend() {
     if (S.songSrc) {
       try {
         toast('Trimming audio… ♪');
-        trimmedSong = await trimAudioTo30s(S.songSrc, S.trimStart);
+        trimmedSong = await trimAudioTo30s(S.songSrc, S.trimStart, S.clipDuration);
       } catch (err) {
         console.warn('Audio trim failed, skipping audio:', err);
         toast('Audio encoding failed — sending without song');
       }
     }
 
-    const letter = {
-      r:  S.recipient.trim().slice(0, 32),
-      n:  S.note.trim().slice(0, 2000),
-      p:  S.photos.slice(0, 6).filter(s => s.startsWith('data:image/')),
-      s:  trimmedSong,
-      sn: S.songName?.slice(0, 120) ?? null,
-      sa: S.songAlbumArt ?? null,
-      d:  new Date().toISOString(),
+    if (confirmBtn) confirmBtn.textContent = 'uploading…';
+
+    // Upload a data URI to Cloudinary, returns secure_url
+    const uploadToCloudinary = async (dataUri: string, resourceType: 'image' | 'video', label: string): Promise<string> => {
+      toast(`Uploading ${label}…`);
+      const res = await fetch(dataUri);
+      const blob = await res.blob();
+      const fd = new FormData();
+      fd.append('file', blob);
+      fd.append('upload_preset', 'wclswrwx');
+      // 3-day auto-expiry via eager transformation tag
+      fd.append('tags', 'retronote,expires_3d');
+      const cRes = await fetch(`https://api.cloudinary.com/v1_1/dt2unqegp/${resourceType}/upload`, {
+        method: 'POST', body: fd,
+      });
+      if (!cRes.ok) throw new Error(`Cloudinary ${label} upload failed: ${cRes.status} ${await cRes.text()}`);
+      return (await cRes.json()).secure_url as string;
     };
 
-    if (confirmBtn) confirmBtn.textContent = 'compressing…';
+    // Upload all photos to Cloudinary
+    const photoUrls = await Promise.all(
+      S.photos.slice(0, 6)
+        .filter(s => s.startsWith('data:image/'))
+        .map((src, i) => uploadToCloudinary(src, 'image', `photo ${i + 1}`))
+    );
+
+    // Upload audio to Cloudinary
+    let audioUrl: string | null = null;
+    if (trimmedSong) {
+      audioUrl = await uploadToCloudinary(trimmedSong, 'video', 'audio ♪');
+    }
+
+    // Album art (small, upload to Cloudinary too)
+    let albumArtUrl: string | null = null;
+    if (S.songAlbumArt) {
+      try { albumArtUrl = await uploadToCloudinary(S.songAlbumArt, 'image', 'album art'); }
+      catch { albumArtUrl = null; }
+    }
+
+    if (confirmBtn) confirmBtn.textContent = 'sealing…';
     toast('Sealing your letter…');
 
-    const hash   = await encodeLetterToHash(letter);
-    const link   = `${window.location.origin}/letter/#${hash}`;
+    // Upload letter metadata as a JSON file to Cloudinary (raw resource type)
+    const letterMeta = {
+      r:    S.recipient.trim().slice(0, 32),
+      n:    S.note.trim().slice(0, 2000),
+      p:    photoUrls,
+      aurl: audioUrl,
+      sn:   S.songName?.slice(0, 120) ?? null,
+      sa:   albumArtUrl,
+      d:    new Date().toISOString(),
+    };
+    const metaBlob = new Blob([JSON.stringify(letterMeta)], { type: 'application/json' });
+    const metaFd = new FormData();
+    metaFd.append('file', metaBlob, 'letter.json');
+    metaFd.append('upload_preset', 'wclswrwx');
+    metaFd.append('tags', 'retronote,expires_3d');
+    const metaRes = await fetch('https://api.cloudinary.com/v1_1/dt2unqegp/raw/upload', {
+      method: 'POST', body: metaFd,
+    });
+    if (!metaRes.ok) throw new Error(`Cloudinary meta upload failed: ${metaRes.status} ${await metaRes.text()}`);
+    const metaData = await metaRes.json();
+    const metaUrl  = metaData.secure_url as string;
+    // Store only the Cloudinary public_id in the hash — short and stable
+    const publicId = metaData.public_id as string;
+
+    const link   = `${window.location.origin}/letter#${encodeURIComponent(publicId)}`;
     const sizeKB = Math.round(link.length / 1024);
+
+    // Bug 3 fix: stop audio BEFORE wiping state so the ref isn't lost
+    if (S.composeAudio) { (S.composeAudio as HTMLAudioElement).pause(); S.composeAudio = null; }
+    if (_trimPreviewAudio) { _trimPreviewAudio.pause(); _trimPreviewAudio = null; }
 
     // Reset state and clear saved draft
     Object.assign(S, {
       photos: [], songSrc: null, songName: null, songAlbumArt: null,
       recipient: '', note: '', composeIsPlaying: false, trimStart: 0, songDuration: 0,
     });
-    if (S.composeAudio) { (S.composeAudio as HTMLAudioElement).pause(); S.composeAudio = null; }
     clearSession();
 
     closePreviewOverlay();
     const appRoot = document.getElementById('rn-app');
     if (appRoot) renderCompose(appRoot);
-    showShareBanner(link, sizeKB, letter);
+    showShareBanner(link, sizeKB, letterMeta);
     toast('Sealed & sent ✦');
 
   } catch (err) {
@@ -667,12 +769,18 @@ async function renderLetterPage(root: HTMLElement) {
   stopAllAudio();
   root.innerHTML = loadingHTML();
 
-  const hash = window.location.hash.slice(1);
-  if (!hash) { root.innerHTML = notFoundHTML(); return; }
+  const hashVal = window.location.hash.slice(1);
+  if (!hashVal) { root.innerHTML = notFoundHTML(); return; }
 
   let letter;
   try {
-    letter = await decodeLetterFromHash(hash);
+    const publicId = decodeURIComponent(hashVal);
+    // Fetch the letter JSON from Cloudinary by public_id
+    const metaUrl = `https://res.cloudinary.com/dt2unqegp/raw/upload/${publicId}`;
+    const res = await fetch(metaUrl);
+    if (!res.ok) throw new Error(`Cloudinary fetch failed: ${res.status}`);
+    letter = await res.json();
+    if (!letter.s && letter.aurl) letter.s = letter.aurl;
   } catch (err) {
     console.error('Failed to decode letter hash:', err);
     root.innerHTML = corruptHTML();

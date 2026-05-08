@@ -8,6 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "cloudinary": "^2.10.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tw-animate-css": "1.3.8"
