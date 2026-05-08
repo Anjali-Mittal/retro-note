@@ -1,5 +1,3 @@
-<img width="1644" height="869" alt="image" src="https://github.com/user-attachments/assets/38d9b985-9cb8-4a17-a061-425be5ec4a13" /># retro note
-
 > *send love, wrapped in vinyl*
 
 **retro note** is a vintage-aesthetic web app for crafting and sharing heartfelt letters — complete with photos, a personal song, and a handwritten note — all wrapped up in a beautiful vinyl + envelope collage.
